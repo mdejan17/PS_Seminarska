@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define SIZE 100
+#define SIZE 300
 #define ALFA 1.0f
 #define BETA 0.5f
 #define GAMA 0.01f
