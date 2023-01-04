@@ -37,21 +37,19 @@ void init_n(struct cell **field, int i, int j)
     field[i][j].nx[3] = i + 1;
     field[i][j].ny[3] = j;
 
+    field[i][j].ny[4] = j - 1;
+    
+    field[i][j].ny[5] = j + 1;
+    
     if(j % 2 == 1)
     {
         field[i][j].nx[4] = i + 1;
-        field[i][j].ny[4] = j - 1;
-
         field[i][j].nx[5] = i + 1;
-        field[i][j].ny[5] = j + 1;
     }
     else
     {
         field[i][j].nx[4] = i - 1;
-        field[i][j].ny[4] = j - 1;
-
         field[i][j].nx[5] = i - 1;
-        field[i][j].ny[5] = j + 1;
 
     }
 }
