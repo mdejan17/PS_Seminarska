@@ -96,12 +96,12 @@ bool end(struct cell **field)
     //ce so zamrznjene celice prisle do roba, koncamo
     for(int i = 1; i < SIZE - 1; i++)
     {
-        if(field[i][1].type == 0 || field[i][SIZE - 1].type == 0)
+        if(field[i][1].type == 0 || field[i][SIZE - 2].type == 0)
             return true;
     }
     for(int j = 1; j < SIZE - 1; j++)
     {
-        if(field[1][j].type == 0 || field[SIZE - 1][j].type == 0)
+        if(field[1][j].type == 0 || field[SIZE - 2][j].type == 0)
             return true;
     }
     return false;
