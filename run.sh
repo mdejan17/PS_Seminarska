@@ -1,7 +1,14 @@
 #!/bin/bash
-gcc src/serial.c -o serial
+mkdir img
+mkdir final
+mkdir bin
+gcc  src/pt_rows.c -o serial -fopenmp
 ./serial
-sleep 2
 python3 src/toImage.py
+cd final
+ffmpeg -framerate 20 -i "%05d.png" ../output.mp4 -y
+cd ..
 rm serial
-rm rezultati.txt
+rm -rf bin
+rm -rf img
+rm -rf final
