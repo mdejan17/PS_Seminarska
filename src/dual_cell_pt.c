@@ -330,34 +330,17 @@ void *step_thread(void *arg)
         } // i
 
         pthread_barrier_wait(&barrier);
-        //printf("waiting :%d\n", rank);
-
         if(rank == 0){
-            //printf("A--\n");
-            //printHex(B);
-            //printS(B);
-            
-            //getchar();
             hop();
-            //progress = false;
         }
         pthread_barrier_wait(&barrier);
-        if(rank == NTHREADS -1){
-            
-        }
+
+        // terminal print
+        /* if(rank == NTHREADS -1 && progress){
+            printHex(A);
+        } */
     } // step loop
 }
-
-/* void *copy_array(void *arg)
-{
-    int *rank = (int *)arg;
-    int start = (int)(SIZE / (double)NTHREADS * *rank);
-    int stop = (int)(SIZE / (double)NTHREADS * (*rank + 1));
-    for (int i = start; i < stop; i++)
-    {
-        memcpy(field2[i], field[i], SIZE * sizeof(struct cell));
-    }
-} */
 
 int main(int argc, char **argv)
 {
