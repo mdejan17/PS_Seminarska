@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <omp.h>
 
-#define SIZE 301
+#define SIZE 40
 #define ALFA 1.0f
 #define BETA 0.5f
 #define GAMA 0.01f
@@ -30,8 +30,8 @@ struct cell
 struct cell *data;
 struct cell **field;
 
-int A = 0;
-int B = 1;
+//int A = 0;
+//int B = 1;
 
 // da vemo, ali zapisujemo v file
 bool progress = false;
@@ -204,13 +204,15 @@ void *init_thread(void *arg)
 // swaps field pointers and handles mem copy
 void hop()
 {
-    A = (A * -1) + 1;
-    B = (B * -1) + 1;
+    //A = (A * -1) + 1;
+    //B = (B * -1) + 1;
 }
 
 void *step_thread(void *arg)
 {
-
+    int A = 0;
+    int B = 1;
+    
     int rank = (long int)arg;
     int start = (int)(SIZE / (double)NTHREADS * rank);
     if (rank == 0)
@@ -329,10 +331,9 @@ void *step_thread(void *arg)
             } /// j
         } // i
 
-        pthread_barrier_wait(&barrier);
-        if(rank == 0){
-            hop();
-        }
+        //pthread_barrier_wait(&barrier);
+        A = (A * -1) + 1;
+        B = (B * -1) + 1;
         pthread_barrier_wait(&barrier);
 
         // terminal print
@@ -376,6 +377,8 @@ int main(int argc, char **argv)
     }
     for (int i = 0; i < NTHREADS; i++)
         pthread_join(t[i], NULL);
+
+    printHex(0);
 
     for (int i = 0; i < NTHREADS; i++)
     {

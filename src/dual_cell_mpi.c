@@ -26,7 +26,7 @@ struct cell
     char changed;
 
     // padding or no?
-    char padding[8];  // 12B + 4B = 16B -> 4 celli so 1 cache line (64 B)
+    char padding[8]; // 12B + 4B = 16B -> 4 celli so 1 cache line (64 B)
 };
 
 struct cell *data;
@@ -45,8 +45,7 @@ int FIELD_LEN;
 int MY_INTERSECTION_TOP;
 int MY_INTERSECTION_BOT;
 
-int A = 0;
-int B = 1;
+int steps = 0;
 
 // da vemo, ali zapisujemo v file
 bool progress = false;
@@ -54,24 +53,26 @@ bool progress = false;
 // da vemo, ali smo na koncu
 bool border = false;
 
-
-
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrier_t barrier;
-//pthread_barrier_t barrier2;
+// pthread_barrier_t barrier2;
 
 void printHex(int f)
 {
     for (int i = -MY_INTERSECTION_TOP; i < FIELD_LEN + MY_INTERSECTION_BOT; i++)
     {
-        if(i == 0){
-            for(int j = 0; j < SIZE; j++){
+        if (i == 0)
+        {
+            for (int j = 0; j < SIZE; j++)
+            {
                 printf(" - ");
             }
             printf("\n");
         }
-        if(i == FIELD_LEN){
-            for(int j = 0; j < SIZE; j++){
+        if (i == FIELD_LEN)
+        {
+            for (int j = 0; j < SIZE; j++)
+            {
                 printf(" - ");
             }
             printf("\n");
@@ -79,34 +80,40 @@ void printHex(int f)
 
         for (int j = 0; j < SIZE; j++)
         {
-            if (j % 2 == 0) {
-                if(field[i][j].type[f] == 0)
+            if (j % 2 == 0)
+            {
+                if (field[i][j].type[f] == 0)
                     printf(" @ ");
-                else if(field[i][j].type[f] == 1)
-                    printf("   ");
-                else if(field[i][j].type[f] == 2)
+                else if (field[i][j].type[f] == 1)
+                    printf(" o ");
+                else if (field[i][j].type[f] == 2)
                     printf(" | ");
-                else{
+                else
+                {
                     printf("   ");
                 }
-            } else
+            }
+            else
                 printf("   ");
         }
         printf("\n");
         for (int j = 0; j < SIZE; j++)
         {
-            if (j % 2 == 1) {
-                if(field[i][j].type[f] == 0)
+            if (j % 2 == 1)
+            {
+                if (field[i][j].type[f] == 0)
                     printf(" @ ");
-                else if(field[i][j].type[f] == 1)
-                    printf("   ");
-                else if(field[i][j].type[f] == 2)
+                else if (field[i][j].type[f] == 1)
+                    printf(" o ");
+                else if (field[i][j].type[f] == 2)
                     printf(" | ");
                 else
                     printf("   ");
-            } else{
+            }
+            else
+            {
                 printf("   ");
-            } 
+            }
         }
         printf("\n");
     }
@@ -116,14 +123,18 @@ void printS(int f)
 {
     for (int i = -MY_INTERSECTION_TOP; i < FIELD_LEN + MY_INTERSECTION_BOT; i++)
     {
-        if(i == 0){
-            for(int j = 0; j < SIZE; j++){
+        if (i == 0)
+        {
+            for (int j = 0; j < SIZE; j++)
+            {
                 printf(" - ");
             }
             printf("\n");
         }
-        if(i == FIELD_LEN){
-            for(int j = 0; j < SIZE; j++){
+        if (i == FIELD_LEN)
+        {
+            for (int j = 0; j < SIZE; j++)
+            {
                 printf(" - ");
             }
             printf("\n");
@@ -131,27 +142,34 @@ void printS(int f)
 
         for (int j = 0; j < SIZE; j++)
         {
-            if (j % 2 == 0) {
-                if(field[i][j].type[f] == 0)
+            if (j % 2 == 0)
+            {
+                if (field[i][j].type[f] == 0)
                     printf("%.3f", field[i][j].s[f]);
-                else{
+                else
+                {
                     printf("%.3f", field[i][j].s[f]);
                 }
-            } else
+            }
+            else
                 printf("    ");
         }
         printf("\n");
         for (int j = 0; j < SIZE; j++)
         {
-            if (j % 2 == 1) {
-                if(field[i][j].type[f] == 0)
+            if (j % 2 == 1)
+            {
+                if (field[i][j].type[f] == 0)
                     printf("%.3f", field[i][j].s[f]);
-                else{
+                else
+                {
                     printf("%.3f", field[i][j].s[f]);
                 }
-            } else{
+            }
+            else
+            {
                 printf("    ");
-            } 
+            }
         }
         printf("\n");
     }
@@ -192,21 +210,28 @@ void *init_thread(void *arg)
     int start = (int)(FIELD_LEN / (double)NTHREADS * rank);
     int stop = (int)(FIELD_LEN / (double)NTHREADS * (rank + 1));
 
-    if(rank == NTHREADS - 1){
+    if (rank == NTHREADS - 1)
+    {
         stop = FIELD_LEN;
     }
 
-    // if 
-    if(rank == 0 || rank == NTHREADS - 1){
-        if(MPI_RANK == 0 || MPI_RANK == MPI_SIZE - 1){
+    printf("[%d, %d)\n", start, stop);
+
+    // if
+    if (rank == 0 || rank == NTHREADS - 1)
+    {
+        if (MPI_RANK == 0 || MPI_RANK == MPI_SIZE - 1)
+        {
+            printf("top: %d bot: %d\n", MY_INTERSECTION_TOP, MY_INTERSECTION_BOT);
             stop += MY_INTERSECTION_BOT;
             start -= MY_INTERSECTION_TOP;
         }
     }
+    printf("[%d, %d)\n", start, stop);
 
     for (int i = start; i < stop; i++)
     {
-        printf("rank %d i: %d\n", MPI_RANK, i);
+        //printf("rank %d i: %d\n", MPI_RANK, i);
         for (int j = 0; j < SIZE; j++)
         {
 
@@ -218,13 +243,16 @@ void *init_thread(void *arg)
             if (field[i][j].type[1] != 1)
                 field[i][j].type[1] = 3;
             // if u are mpi 0 and i 0 -> top border (robne celice)
-            if(MPI_RANK == 0 && i == 0){
+            if (MPI_RANK == 0 && i == 0)
+            {
                 // robna celica
                 field[i][j].type[0] = 2;
                 field[i][j].type[1] = 2;
-            
-            // if u are last mpi and on last i -> bottom border (robne celice)
-            } else if(MPI_RANK == MPI_SIZE - 1 && i == stop - 1){
+
+                // if u are last mpi and on last i -> bottom border (robne celice)
+            }
+            else if (MPI_RANK == MPI_SIZE - 1 && i == stop - 1)
+            {
                 field[i][j].type[0] = 2;
                 field[i][j].type[1] = 2;
             }
@@ -264,98 +292,53 @@ void *init_thread(void *arg)
     }
 }
 
-// swaps field pointers and handles mem copy
-void hop()
-{
-    A = (A * -1) + 1;
-    B = (B * -1) + 1;
-}
-
 void *step_thread(void *arg)
 {
     int rank = (long int)arg;
-    int start = (int)(SIZE / (double)NTHREADS * rank);
+    
+    int A = 0;
+    int B = 1;
+    int step = 0;
+
+    int start = (int)(FIELD_LEN / (double)NTHREADS * rank);
     if (rank == 0)
     {
-        start = 1;
+        start = 1 - MY_INTERSECTION_TOP;
     }
     int stop = (int)(SIZE / (double)NTHREADS * (rank + 1));
     if (rank == NTHREADS - 1)
     {
-        stop = SIZE - 1;
+        stop = FIELD_END + MY_INTERSECTION_BOT;
     }
-    //printf("smo v threadu %d : [%d, %d)\n", rank, start, stop);
+    // printf("smo v threadu %d : [%d, %d)\n", rank, start, stop);
 
     while (!border)
     {
-        for (int i = start; i < stop; i++)
+        while (step < MPI_INTERSECTION_WIDTH)
         {
-            for (int j = 1; j < SIZE - 1; j++)
+            for (int i = start; i < stop; i++)
             {
-
-                int odd = j % 2;
-                int x;
-                int y;
-                // izracunaj koliko vode dobi celica
-                // robne celice imajo vedno BETA vode
-                if (field[i][j].type[A] != 0 && field[i][j].type[A] != 2)
+                for (int j = 1; j < SIZE - 1; j++)
                 {
-                    // part of mem_copy 1/2
-                    if(field[i][j].type[A] == 1){
-                        field[i][j].type[B] = 1;
-                        //printf("transitioned MEJNA (%d, %d)\n", i, j);
-                    } else{
-                        //printf(" > DOV (%d, %d)\n", i, j);
-                    }
-                    float sum = 0;
-                    for (int k = 0; k < 6; k++)
+
+                    int odd = j % 2;
+                    int x;
+                    int y;
+                    // izracunaj koliko vode dobi celica
+                    // robne celice imajo vedno BETA vode
+                    if (field[i][j].type[A] != 0 && field[i][j].type[A] != 2)
                     {
-                        // (potencialni) sosedi
-                        if (odd)
+                        // part of mem_copy 1/2
+                        if (field[i][j].type[A] == 1)
                         {
-                            x = i + odd_neighbours[k][0];
-                            y = j + odd_neighbours[k][1];
+                            field[i][j].type[B] = 1;
+                            // printf("transitioned MEJNA (%d, %d)\n", i, j);
                         }
                         else
                         {
-                            x = i + even_neighbours[k][0];
-                            y = j + even_neighbours[k][1];
+                            // printf(" > DOV (%d, %d)\n", i, j);
                         }
-
-                        // prištej samo iz robnih in nedovzetnih (prostih) celic
-                        if (field[x][y].type[A] == 2 || field[x][y].type[A] == 3)
-                        {
-                            sum += field[x][y].s[A];
-                        }
-                    }
-                    sum /= 6;
-                    if(field[i][j].type[A] == 3)
-                        sum -= field[i][j].s[A];
-
-                    sum *= (ALFA / 2);
-                    if (field[i][j].type[A] == 1)
-                        sum += GAMA;
-
-                    sum += field[i][j].s[A];
-
-                    field[i][j].s[B] = sum; // WRITING TO B
-                    if (field[i][j].s[B] >= 1) // && field[i][j].type[B] == 1)
-                    {
-                        // imamo progress
-                        progress = true;
-
-                        // celica zmrzne
-                        field[i][j].type[B] = 0; // WRITING TO B
-                        field[i][j].changed = true;
-
-                        // ce je zmrznila celica na robu polja, ne iteriramo vec
-                        if (i == 1 || i == SIZE - 2 || j == 1 || j == SIZE - 2)
-                        {
-                            border = true;
-                            //continue;
-                        }
-
-                        // sosedi zamrznjene celice postanejo dovzetni
+                        float sum = 0;
                         for (int k = 0; k < 6; k++)
                         {
                             // (potencialni) sosedi
@@ -369,40 +352,100 @@ void *step_thread(void *arg)
                                 x = i + even_neighbours[k][0];
                                 y = j + even_neighbours[k][1];
                             }
-                            if (x != -1 && y != -1 && x != SIZE && y != SIZE)
+
+                            // prištej samo iz robnih in nedovzetnih (prostih) celic
+                            if (field[x][y].type[A] == 2 || field[x][y].type[A] == 3)
                             {
-                                if(field[x][y].type[B] == 3){
-                                    //pthread_mutex_lock(&lock);
-                                    field[x][y].type[B] = 1; // WRITTING TO B
-                                    //pthread_mutex_unlock(&lock);
-                                }
+                                sum += field[x][y].s[A];
                             }
                         }
-                    } // if it froze
-                } else{ // zmrznjena ali robna... mem copy
-                    // part of mem copy 2/2
-                    if(field[i][j].changed){
-                        //printf("transitioned %d ZMRZNENA (%d, %d)\n",rank , i, j);
-                        field[i][j].type[B] = field[i][j].type[A];
-                        field[i][j].s[B] = field[i][j].s[A];
-                        field[i][j].changed = 0;
+                        sum /= 6;
+                        if (field[i][j].type[A] == 3)
+                            sum -= field[i][j].s[A];
+
+                        sum *= (ALFA / 2);
+                        if (field[i][j].type[A] == 1)
+                            sum += GAMA;
+
+                        sum += field[i][j].s[A];
+
+                        field[i][j].s[B] = sum;    // WRITING TO B
+                        if (field[i][j].s[B] >= 1) // && field[i][j].type[B] == 1)
+                        {
+                            // imamo progress
+                            progress = true;
+
+                            // celica zmrzne
+                            field[i][j].type[B] = 0; // WRITING TO B
+                            field[i][j].changed = true;
+
+                            // ce je zmrznila celica na robu polja, ne iteriramo vec
+                            if (i == 1 || i == SIZE - 2 || j == 1 || j == SIZE - 2)
+                            {
+                                border = true;
+                                // continue;
+                            }
+
+                            // sosedi zamrznjene celice postanejo dovzetni
+                            for (int k = 0; k < 6; k++)
+                            {
+                                // (potencialni) sosedi
+                                if (odd)
+                                {
+                                    x = i + odd_neighbours[k][0];
+                                    y = j + odd_neighbours[k][1];
+                                }
+                                else
+                                {
+                                    x = i + even_neighbours[k][0];
+                                    y = j + even_neighbours[k][1];
+                                }
+                                if (x != -1 - MY_INTERSECTION_TOP && y != -1 && x != FIELD_LEN + MY_INTERSECTION_BOT && y != SIZE)
+                                {
+                                    if (field[x][y].type[B] == 3)
+                                    {
+                                        // pthread_mutex_lock(&lock);
+                                        field[x][y].type[B] = 1; // WRITTING TO B
+                                        // pthread_mutex_unlock(&lock);
+                                    }
+                                }
+                            }
+                        } // if it froze
                     }
-                }
-            } /// j
-        } // i
+                    else
+                    { // zmrznjena ali robna... mem copy
+                        // part of mem copy 2/2
+                        if (field[i][j].changed)
+                        {
+                            // printf("transitioned %d ZMRZNENA (%d, %d)\n",rank , i, j);
+                            field[i][j].type[B] = field[i][j].type[A];
+                            field[i][j].s[B] = field[i][j].s[A];
+                            field[i][j].changed = 0;
+                        }
+                    }
+                } /// j
+            }     // i
 
-        pthread_barrier_wait(&barrier);
-        if(rank == 0){ // TRANSITION MPI
+            A = (A * -1) + 1;
+            B = (B * -1) + 1;
+            step++;
+            pthread_barrier_wait(&barrier);
+        } // while step
 
-            hop();
+        if(rank == 0){
+            // TODO mpi transmission
         }
+        
+        step = 0;
         pthread_barrier_wait(&barrier);
 
         // terminal print
         /* if(rank == NTHREADS -1 && progress){
             printHex(A);
         } */
-    } // step loop
+    } // while border
+
+    // TODO mpi send stop algo signal
 }
 
 int main(int argc, char **argv)
@@ -416,33 +459,38 @@ int main(int argc, char **argv)
 
     MY_INTERSECTION_BOT = MPI_INTERSECTION_WIDTH;
     MY_INTERSECTION_TOP = MPI_INTERSECTION_WIDTH;
-    if(MPI_RANK == 0){ // first mpi has no intersection on top
+    if (MPI_RANK == 0)
+    { // first mpi has no intersection on top
         MY_INTERSECTION_TOP = 0;
-    } else if(MPI_RANK == MPI_SIZE - 1){ // last mpi has no intersection on bot
+    }
+    if (MPI_RANK == MPI_SIZE - 1)
+    { // last mpi has no intersection on bot
         MY_INTERSECTION_BOT = 0;
         FIELD_END = SIZE;
     }
+
+    //printf("mpi rank: %d size: %d  [%d, %d)\n", MPI_RANK, MPI_SIZE, FIELD_START, FIELD_END);
 
     FIELD_LEN = FIELD_END - FIELD_START;
 
     // setup field, based on our intersections
     data = (struct cell *)malloc(SIZE * (FIELD_LEN + MY_INTERSECTION_BOT + MY_INTERSECTION_TOP) * sizeof(struct cell));
-    base_field = (struct cell **)malloc((FIELD_LEN + MY_INTERSECTION_BOT + MY_INTERSECTION_TOP) * sizeof(struct cell*));
+    base_field = (struct cell **)malloc((FIELD_LEN + MY_INTERSECTION_BOT + MY_INTERSECTION_TOP) * sizeof(struct cell *));
     for (int i = 0; i < FIELD_LEN + MY_INTERSECTION_BOT + MY_INTERSECTION_TOP; i++)
         base_field[i] = &(data[SIZE * i]);
-    
+
     // field[-MY_INTERSECTION_TOP] = prvi element tabele
 
     field = &(base_field[MY_INTERSECTION_TOP]);
 
     // setaj up pthreads shit
     pthread_barrier_init(&barrier, NULL, NTHREADS);
-    //pthread_barrier_init(&barrier2), NULL, NTHREADS;
+    // pthread_barrier_init(&barrier2), NULL, NTHREADS;
     pthread_t t[NTHREADS];
 
     // setaj up text file
     char *filename = "pt_rows.txt";
-    //char *filename = "bin/rezultati.txt";
+    // char *filename = "bin/rezultati.txt";
     FILE *fp = fopen(filename, "w");
     if (fp == NULL)
     {
@@ -462,9 +510,10 @@ int main(int argc, char **argv)
         pthread_join(t[i], NULL);
 
     printf("a:\n");
-    printHex(A);
-    printf("b:\n");
-    printHex(B);
+    printHex(0);
+    //printf("b:\n");
+    //printHex(B);
+    return 0;
 
     for (int i = 0; i < NTHREADS; i++)
     {
