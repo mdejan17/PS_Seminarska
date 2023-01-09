@@ -5,13 +5,15 @@
 #include <pthread.h>
 #include <omp.h>
 
-#define SIZE 101
+#include <mpi.h>
+
+#define SIZE 40
 
 #define ALFA 1.0f
 #define BETA 0.5f
 #define GAMA 0.01f
 
-#define NTHREADS 2
+#define NTHREADS 1
 
 #define MPI_INTERSECTION_WIDTH 2
 
@@ -28,7 +30,9 @@ struct cell
 };
 
 struct cell *data;
+
 struct cell **field;
+struct cell **base_field;
 
 int MPI_SIZE;
 int MPI_RANK;
@@ -50,14 +54,29 @@ bool progress = false;
 // da vemo, ali smo na koncu
 bool border = false;
 
+
+
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrier_t barrier;
 //pthread_barrier_t barrier2;
 
 void printHex(int f)
 {
-    for (int i = 0; i < SIZE; i++)
+    for (int i = -MY_INTERSECTION_TOP; i < FIELD_LEN + MY_INTERSECTION_BOT; i++)
     {
+        if(i == 0){
+            for(int j = 0; j < SIZE; j++){
+                printf(" - ");
+            }
+            printf("\n");
+        }
+        if(i == FIELD_LEN){
+            for(int j = 0; j < SIZE; j++){
+                printf(" - ");
+            }
+            printf("\n");
+        }
+
         for (int j = 0; j < SIZE; j++)
         {
             if (j % 2 == 0) {
@@ -95,8 +114,21 @@ void printHex(int f)
 
 void printS(int f)
 {
-    for (int i = 0; i < SIZE; i++)
+    for (int i = -MY_INTERSECTION_TOP; i < FIELD_LEN + MY_INTERSECTION_BOT; i++)
     {
+        if(i == 0){
+            for(int j = 0; j < SIZE; j++){
+                printf(" - ");
+            }
+            printf("\n");
+        }
+        if(i == FIELD_LEN){
+            for(int j = 0; j < SIZE; j++){
+                printf(" - ");
+            }
+            printf("\n");
+        }
+
         for (int j = 0; j < SIZE; j++)
         {
             if (j % 2 == 0) {
@@ -161,19 +193,23 @@ void *init_thread(void *arg)
     int stop = (int)(FIELD_LEN / (double)NTHREADS * (rank + 1));
 
     if(rank == NTHREADS - 1){
-        stop = FIELD_END;
+        stop = FIELD_LEN;
     }
 
-    if(rank == 0 || rank == NTHREADS - 1){ // ihandling intersections
+    // if 
+    if(rank == 0 || rank == NTHREADS - 1){
         if(MPI_RANK == 0 || MPI_RANK == MPI_SIZE - 1){
-            stop += MPI_INTERSECTION_WIDTH;
+            stop += MY_INTERSECTION_BOT;
+            start -= MY_INTERSECTION_TOP;
         }
     }
 
     for (int i = start; i < stop; i++)
     {
+        printf("rank %d i: %d\n", MPI_RANK, i);
         for (int j = 0; j < SIZE; j++)
         {
+
             field[i][j].changed = 1;
             field[i][j].s[0] = BETA;
             field[i][j].s[1] = BETA;
@@ -198,7 +234,7 @@ void *init_thread(void *arg)
                 field[i][j].type[1] = 2;
             }
             // teoreticno bi lahko dau v pogoj še: MPI_RANK == MPI_SIZE/2 && ...
-            else if ((FIELD_START + i - MY_INTERSECTION_TOP) == SIZE / 2 && j == SIZE / 2)
+            else if ((FIELD_START + i) == SIZE / 2 && j == SIZE / 2)
             {
                 // srednja celica
                 field[i][j].s[0] = 1.0;
@@ -220,9 +256,8 @@ void *init_thread(void *arg)
                         x = i + even_neighbours[k][0];
                         y = j + even_neighbours[k][1];
                     }
-                    //pthread_mutex_lock(&lock);
+
                     field[x][y].type[0] = 1;
-                    //pthread_mutex_unlock(&lock);
                 }
             }
         }
@@ -372,43 +407,33 @@ void *step_thread(void *arg)
 
 int main(int argc, char **argv)
 {
-    MPI_Init(&argc, argv);
+    MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &MPI_SIZE);
     MPI_Comm_rank(MPI_COMM_WORLD, &MPI_RANK);
 
     FIELD_START = (SIZE / MPI_SIZE) * MPI_RANK;
     FIELD_END = (SIZE / MPI_SIZE) * (MPI_RANK + 1);
 
-    if(MPI_RANK == 0){
+    MY_INTERSECTION_BOT = MPI_INTERSECTION_WIDTH;
+    MY_INTERSECTION_TOP = MPI_INTERSECTION_WIDTH;
+    if(MPI_RANK == 0){ // first mpi has no intersection on top
         MY_INTERSECTION_TOP = 0;
-    } else if(MPI_RANK == MPI_SIZE - 1){
+    } else if(MPI_RANK == MPI_SIZE - 1){ // last mpi has no intersection on bot
         MY_INTERSECTION_BOT = 0;
         FIELD_END = SIZE;
-    } else {
-        MY_INTERSECTION_BOT = MPI_INTERSECTION_WIDTH;
-        MY_INTERSECTION_TOP = MPI_INTERSECTION_WIDTH;
     }
 
     FIELD_LEN = FIELD_END - FIELD_START;
 
-    //printf("Cell size: %ldB\n", sizeof(struct cell));
-    // ustvari tabelo
-    if(MPI_RANK == 0){
-        data = (struct cell *)malloc(SIZE * (FIELD_LEN + MPI_INTERSECTION_WIDTH) * sizeof(struct cell));
-        field = (struct cell **)malloc(FIELD_LEN * sizeof(struct cell*));
-        for (int i = 0; i < FIELD_LEN + MPI_INTERSECTION_WIDTH; i++)
-            field[i] = &(data[SIZE * i]);
-    } else if(MPI_RANK == MPI_SIZE - 1){
-        data = (struct cell *)malloc(SIZE * (FIELD_LEN + MPI_INTERSECTION_WIDTH) * sizeof(struct cell));
-        field = (struct cell **)malloc(FIELD_LEN * sizeof(struct cell*));
-        for (int i = 0; i < FIELD_LEN + MPI_INTERSECTION_WIDTH; i++)
-            field[i] = &(data[SIZE * i]);
-    } else{
-        data = (struct cell *)malloc(SIZE * (FIELD_LEN + 2*MPI_INTERSECTION_WIDTH) * sizeof(struct cell));
-        field = (struct cell **)malloc(FIELD_LEN * sizeof(struct cell*));
-        for (int i = 0; i < FIELD_LEN + 2*MPI_INTERSECTION_WIDTH; i++)
-            field[i] = &(data[SIZE * i]);
-    }
+    // setup field, based on our intersections
+    data = (struct cell *)malloc(SIZE * (FIELD_LEN + MY_INTERSECTION_BOT + MY_INTERSECTION_TOP) * sizeof(struct cell));
+    base_field = (struct cell **)malloc((FIELD_LEN + MY_INTERSECTION_BOT + MY_INTERSECTION_TOP) * sizeof(struct cell*));
+    for (int i = 0; i < FIELD_LEN + MY_INTERSECTION_BOT + MY_INTERSECTION_TOP; i++)
+        base_field[i] = &(data[SIZE * i]);
+    
+    // field[-MY_INTERSECTION_TOP] = prvi element tabele
+
+    field = &(base_field[MY_INTERSECTION_TOP]);
 
     // setaj up pthreads shit
     pthread_barrier_init(&barrier, NULL, NTHREADS);
@@ -436,9 +461,10 @@ int main(int argc, char **argv)
     for (int i = 0; i < NTHREADS; i++)
         pthread_join(t[i], NULL);
 
+    printf("a:\n");
     printHex(A);
+    printf("b:\n");
     printHex(B);
-    return 0;
 
     for (int i = 0; i < NTHREADS; i++)
     {
