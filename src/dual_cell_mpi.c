@@ -376,8 +376,8 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &MPI_SIZE);
     MPI_Comm_rank(MPI_COMM_WORLD, &MPI_RANK);
 
-    FIELD_START = (MPI_SIZE / SIZE) * MPI_RANK;
-    FIELD_END = (MPI_SIZE / SIZE) * (MPI_RANK + 1);
+    FIELD_START = (SIZE / MPI_SIZE) * MPI_RANK;
+    FIELD_END = (SIZE / MPI_SIZE) * (MPI_RANK + 1);
 
     if(MPI_RANK == 0){
         MY_INTERSECTION_TOP = 0;
