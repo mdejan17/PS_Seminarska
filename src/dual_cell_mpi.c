@@ -8,12 +8,13 @@
 #include <mpi.h>
 
 #define SIZE 301
+#define PROC_STEPS SIZE * 30
 
 #define ALFA 1.0f
 #define BETA 0.5f
 #define GAMA 0.01f
 
-#define NTHREADS 2
+#define NTHREADS 4
 
 #define MPI_INTERSECTION_WIDTH 2
 
@@ -26,7 +27,7 @@ struct cell
     char changed;
 
     // padding or no?
-    char padding[8]; // 12B + 4B = 16B -> 4 celli so 1 cache line (64 B)
+    // char padding[8]; // 12B + 4B = 16B -> 4 celli so 1 cache line (64 B)
 };
 
 struct cell *data;
@@ -57,6 +58,9 @@ bool border = false;
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrier_t barrier;
 // pthread_barrier_t barrier2;
+
+MPI_Request final_req_rec;
+MPI_Request final_req_send;
 
 void printHex(int f)
 {
@@ -298,6 +302,7 @@ void *init_thread(void *arg)
 
 void *step_thread(void *arg)
 {
+    int proc_cnt = 0;
     int rank = (long int)arg;
 
     int A = 0;
@@ -318,7 +323,8 @@ void *step_thread(void *arg)
     // printf("STEP [%d, %d)\n", start, stop);
     //  printf("smo v threadu %d : [%d, %d)\n", rank, start, stop);
 
-    while (!border)
+    //while (!border)
+    while(proc_cnt < PROC_STEPS)
     {
         while (step < MPI_INTERSECTION_WIDTH)
         {
@@ -430,14 +436,17 @@ void *step_thread(void *arg)
                             field[i][j].changed = true;
 
                             // ce je zmrznila celica na robu polja, ne iteriramo vec
-                            if (j == 1 || j == SIZE - 2)
+                            if (j == 3 || j == SIZE - 2)
                             {
-                                border = true;
+                                /* for(int i = 0; i < MPI_SIZE; i++){
+                                    MPI_Isend(&border, 1, MPI_INT, i, 1, MPI_COMM_WORLD, &);
+                                } */
+                                //border = true;
                                 // continue;
                             }
-                            if ((MPI_RANK == 0 && i == 1) || (MPI_RANK == MPI_SIZE - 1 && i == SIZE - 2))
+                            if ((MPI_RANK == 0 && i == 1) || (MPI_RANK == MPI_SIZE - 1 && i == FIELD_LEN - 1))
                             {
-                                border = true;
+                                //border = true;
                             }
 
                             // sosedi zamrznjene celice postanejo dovzetni
@@ -497,6 +506,7 @@ void *step_thread(void *arg)
             // printf("waiting: %d\n", rank);
 
             pthread_barrier_wait(&barrier);
+            proc_cnt++;
         } // while step
         void *buffer_ptr0;
         void *buffer_ptr1;
@@ -588,7 +598,7 @@ void *step_thread(void *arg)
         } */
         //pthread_barrier_wait(&barrier);
 
-        if (MPI_RANK == 1 && rank == 1 && progress && !(border))
+        if (MPI_RANK == 1 && rank == 1 && progress)
         {
             progress = false;
             for (int i = 0; i < FIELD_LEN; i++)
@@ -609,7 +619,7 @@ void *step_thread(void *arg)
         /* if(rank == NTHREADS -1 && progress){
             printHex(A);
         } */
-    } // while border
+    } // while border   
     printf("rank: %d on BORDER!\n", MPI_RANK);
 
     // TODO mpi send stop algo signal
@@ -647,6 +657,8 @@ int main(int argc, char **argv)
         base_field[i] = &(data[SIZE * i]);
 
     // field[-MY_INTERSECTION_TOP] = prvi element tabele
+
+    MPI_Irecv(&border, 1, MPI_INT, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &final_req_rec); // start recv for error
 
     field = &(base_field[MY_INTERSECTION_TOP]);
 
@@ -710,6 +722,8 @@ int main(int argc, char **argv)
     if(MPI_RANK == 0)
         printf("time: %lf\n", dt);
 
+    if(MPI_RANK == 0)
+        //printHex(0);
     MPI_Finalize();
 
     //fclose(fp);
