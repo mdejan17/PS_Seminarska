@@ -7,7 +7,7 @@
 
 #include <mpi.h>
 
-#define SIZE 40
+#define SIZE 60
 
 #define ALFA 1.0f
 #define BETA 0.5f
@@ -85,7 +85,7 @@ void printHex(int f)
                 if (field[i][j].type[f] == 0)
                     printf(" @ ");
                 else if (field[i][j].type[f] == 1)
-                    printf(" o ");
+                    printf("   ");
                 else if (field[i][j].type[f] == 2)
                     printf(" | ");
                 else
@@ -104,7 +104,7 @@ void printHex(int f)
                 if (field[i][j].type[f] == 0)
                     printf(" @ ");
                 else if (field[i][j].type[f] == 1)
-                    printf(" o ");
+                    printf("   ");
                 else if (field[i][j].type[f] == 2)
                     printf(" | ");
                 else
@@ -123,6 +123,7 @@ void printS(int f)
 {
     for (int i = -MY_INTERSECTION_TOP; i < FIELD_LEN + MY_INTERSECTION_BOT; i++)
     {
+        printf("%d ", MPI_RANK);
         if (i == 0)
         {
             for (int j = 0; j < SIZE; j++)
@@ -130,6 +131,7 @@ void printS(int f)
                 printf(" - ");
             }
             printf("\n");
+            printf("%d ", MPI_RANK);
         }
         if (i == FIELD_LEN)
         {
@@ -138,8 +140,8 @@ void printS(int f)
                 printf(" - ");
             }
             printf("\n");
+            printf("%d ", MPI_RANK);
         }
-
         for (int j = 0; j < SIZE; j++)
         {
             if (j % 2 == 0)
@@ -155,6 +157,7 @@ void printS(int f)
                 printf("    ");
         }
         printf("\n");
+        printf("%d ", MPI_RANK);
         for (int j = 0; j < SIZE; j++)
         {
             if (j % 2 == 1)
@@ -231,7 +234,7 @@ void *init_thread(void *arg)
 
     for (int i = start; i < stop; i++)
     {
-        //printf("rank %d i: %d\n", MPI_RANK, i);
+        // printf("rank %d i: %d\n", MPI_RANK, i);
         for (int j = 0; j < SIZE; j++)
         {
 
@@ -295,32 +298,65 @@ void *init_thread(void *arg)
 void *step_thread(void *arg)
 {
     int rank = (long int)arg;
-    
+
     int A = 0;
     int B = 1;
     int step = 0;
-
+          
     int start = (int)(FIELD_LEN / (double)NTHREADS * rank);
     if (rank == 0)
     {
         start = 1 - MY_INTERSECTION_TOP;
     }
-    int stop = (int)(SIZE / (double)NTHREADS * (rank + 1));
+    int stop = (int)(FIELD_LEN / (double)NTHREADS * (rank + 1));
     if (rank == NTHREADS - 1)
     {
-        stop = FIELD_END + MY_INTERSECTION_BOT;
+        stop = FIELD_LEN - 1 + MY_INTERSECTION_BOT;
     }
+
+    //printf("STEP [%d, %d)\n", start, stop);
     // printf("smo v threadu %d : [%d, %d)\n", rank, start, stop);
 
     while (!border)
     {
         while (step < MPI_INTERSECTION_WIDTH)
         {
-            for (int i = start; i < stop; i++)
+            int start_offset = 0;
+            int end_offset = 0;
+
+            if (rank == 0 && MY_INTERSECTION_TOP > 0)
+            {
+                start_offset = step;
+            }
+
+            if (rank == NTHREADS - 1 && MY_INTERSECTION_BOT > 0)
+            {
+                end_offset = step;
+            }
+
+            if (rank == 0 && MY_INTERSECTION_TOP > 0){
+                for (int j = 0; j < SIZE; j++)
+                {
+                    field[start + start_offset-1][j].s[B] = field[start + start_offset-1][j].s[A];
+                    field[start + start_offset-1][j].type[B] = field[start + start_offset-1][j].type[A];
+                }
+            }
+
+            if(rank == NTHREADS - 1 && MY_INTERSECTION_BOT > 0){
+                for (int j = 0; j < SIZE; j++)
+                {
+                    field[stop - end_offset][j].s[B] = field[stop - end_offset][j].s[A];
+                    field[stop - end_offset][j].type[B] = field[stop - end_offset][j].type[A];
+                }
+            }
+
+            
+
+            //printf("r%d step: %d : [%d, %d)\n", MPI_RANK, step, start + start_offset, stop - end_offset);
+            for (int i = start + start_offset; i < stop - end_offset; i++)
             {
                 for (int j = 1; j < SIZE - 1; j++)
                 {
-
                     int odd = j % 2;
                     int x;
                     int y;
@@ -369,7 +405,20 @@ void *step_thread(void *arg)
 
                         sum += field[i][j].s[A];
 
-                        field[i][j].s[B] = sum;    // WRITING TO B
+                        /* if (i > 18)
+                        {
+                            if (j == 21)
+                            {
+                                printf("(%d, %d): read a field: %f\n", i, j, field[i][j].s[A]);
+                                printf("(%d, %d): new sum: %f\n", i, j, sum);
+                                printf("mid: %f\n", field[20][21].s[B]);
+                            }
+                        } */
+                        field[i][j].s[B] = sum; // WRITING TO B
+                        /* if ((i == 20) && j == 21)
+                        {
+                            printf("(%d, %d): written mid field: %f\n", i, j, field[20][j].s[B]);
+                        } */
                         if (field[i][j].s[B] >= 1) // && field[i][j].type[B] == 1)
                         {
                             // imamo progress
@@ -380,10 +429,14 @@ void *step_thread(void *arg)
                             field[i][j].changed = true;
 
                             // ce je zmrznila celica na robu polja, ne iteriramo vec
-                            if (i == 1 || i == SIZE - 2 || j == 1 || j == SIZE - 2)
+                            if (j == 1 || j == SIZE - 2)
                             {
                                 border = true;
                                 // continue;
+                            }
+                            if ((MPI_RANK == 0 && i == 1) || (MPI_RANK == MPI_SIZE - 1 && i == SIZE - 2))
+                            {
+                                border = true;
                             }
 
                             // sosedi zamrznjene celice postanejo dovzetni
@@ -400,7 +453,7 @@ void *step_thread(void *arg)
                                     x = i + even_neighbours[k][0];
                                     y = j + even_neighbours[k][1];
                                 }
-                                if (x != -1 - MY_INTERSECTION_TOP && y != -1 && x != FIELD_LEN + MY_INTERSECTION_BOT && y != SIZE)
+                                // if (x != -1 - MY_INTERSECTION_TOP && y != -1 && x != FIELD_LEN + MY_INTERSECTION_BOT && y != SIZE)
                                 {
                                     if (field[x][y].type[B] == 3)
                                     {
@@ -428,14 +481,110 @@ void *step_thread(void *arg)
 
             A = (A * -1) + 1;
             B = (B * -1) + 1;
+
+            //printf("(%d, %d): mid fieldA: %f\n", 20, 21, field[20][21].s[A]);
+
+            /* printf("rank %d about to hop\n", rank);
+            if(rank == 0){
+                //printf("rank %d :\n", MPI_RANK);
+                printHex(A);
+                getchar();
+            } else{
+                printf("ignored rank 0");
+            } */
             step++;
+            // printf("waiting: %d\n", rank);
             pthread_barrier_wait(&barrier);
         } // while step
+        void *buffer_ptr0;
+        void *buffer_ptr1;
 
-        if(rank == 0){
-            // TODO mpi transmission
+        void *recv_ptr0;
+        void *recv_ptr1;
+        int byte_length;
+
+        MPI_Request req0;
+        MPI_Request req1;
+
+        //return NULL;
+        if (rank == 0)
+        {
+            if (MPI_RANK == 0)
+            {
+                //printS(A);
+                getchar();
+            }
         }
-        
+
+        /* if(MPI_RANK == 1)
+            printf("mid border s: %f\n", field[-1][20].s[B]); */
+
+        // mpi transition
+        if (rank == 0 && MPI_SIZE > 1)
+        {
+            if (MPI_RANK == 0)
+            { // send to BOT
+                //printf("0 transmiting..\n");
+                buffer_ptr0 = (void *)&(field[FIELD_LEN - MPI_INTERSECTION_WIDTH][0]);
+                //printf("0: trans i: %d\n", FIELD_LEN - MPI_INTERSECTION_WIDTH);
+                recv_ptr0 = (void *)&(field[FIELD_LEN][0]);
+                //printf("0: recv i: %d\n", FIELD_LEN);
+                byte_length = SIZE * MY_INTERSECTION_BOT * sizeof(struct cell);
+
+                //MPI_Isend(buffer_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, &req0); // imidiate send your data
+                //printf("sent 0 -> 1\n");
+                MPI_Recv(recv_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
+                //printf("recivd 0 <- 1\n");
+                //MPI_Wait(&req0, MPI_STATUS_IGNORE); // wait till your data was delivered
+                //printf("0 continue\n");
+            }
+            else if (MPI_RANK == MPI_SIZE - 1)
+            { // send to TOP
+                //printf("1 transmiting..\n");
+                buffer_ptr0 = (void *)&(field[0][0]);
+                //printf("1: trans i: %d\n", 0);
+                recv_ptr0 = (void *)&(field[0 - MY_INTERSECTION_TOP][0]);
+                //printf("1: recv i: %d\n", 0 - MY_INTERSECTION_TOP);
+                byte_length = SIZE * MY_INTERSECTION_TOP * sizeof(struct cell);
+
+                MPI_Isend(buffer_ptr0, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, &req0); // imidiate send your data
+                //printf("sent 1 -> 0\n");
+                //MPI_Recv(recv_ptr0, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
+                //printf("recivd 1 <- 0\n");
+                MPI_Wait(&req0, MPI_STATUS_IGNORE); // wait till your data was delivered
+                //printf("1 continue\n");
+            }
+            else
+            { // send both ways
+                // BOT DATA
+                buffer_ptr0 = (void *)&(field[FIELD_LEN - MPI_INTERSECTION_WIDTH][0]);
+                recv_ptr0 = (void *)&(field[FIELD_LEN][0]);
+                byte_length = SIZE * MY_INTERSECTION_BOT * sizeof(struct cell);
+
+                MPI_Isend(buffer_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, &req0);         // imidiate send your data
+                MPI_Recv(recv_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
+                // dont wait for that yet, continue...
+
+                // TOP DATA
+                buffer_ptr1 = (void *)&(field[0][0]);
+                recv_ptr1 = (void *)&(field[0 - MY_INTERSECTION_TOP][0]);
+                byte_length = SIZE * MY_INTERSECTION_TOP * sizeof(struct cell);
+
+                MPI_Isend(buffer_ptr1, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, &req1);         // imidiate send your data
+                MPI_Recv(recv_ptr1, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
+
+                MPI_Wait(&req0, MPI_STATUS_IGNORE); // wait for BOT data delivery
+                MPI_Wait(&req1, MPI_STATUS_IGNORE); // wait for TOP data delivery
+            }
+        }
+
+        if (MPI_RANK == 0 && rank == 0)
+        {
+            pthread_barrier_wait(&barrier);
+            printHex(A);
+            getchar();
+        }
+
         step = 0;
         pthread_barrier_wait(&barrier);
 
@@ -444,6 +593,7 @@ void *step_thread(void *arg)
             printHex(A);
         } */
     } // while border
+    printf("rank: %d on BORDER!\n", MPI_RANK);
 
     // TODO mpi send stop algo signal
 }
@@ -469,7 +619,7 @@ int main(int argc, char **argv)
         FIELD_END = SIZE;
     }
 
-    //printf("mpi rank: %d size: %d  [%d, %d)\n", MPI_RANK, MPI_SIZE, FIELD_START, FIELD_END);
+    // printf("mpi rank: %d size: %d  [%d, %d)\n", MPI_RANK, MPI_SIZE, FIELD_START, FIELD_END);
 
     FIELD_LEN = FIELD_END - FIELD_START;
 
@@ -509,11 +659,10 @@ int main(int argc, char **argv)
     for (int i = 0; i < NTHREADS; i++)
         pthread_join(t[i], NULL);
 
-    printf("a:\n");
-    printHex(0);
-    //printf("b:\n");
-    //printHex(B);
-    return 0;
+    // printHex(0);
+    // printf("b:\n");
+    // printHex(B);
+    // return 0;
 
     for (int i = 0; i < NTHREADS; i++)
     {
