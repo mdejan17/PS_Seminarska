@@ -7,7 +7,7 @@
 
 #include <mpi.h>
 
-#define SIZE 60
+#define SIZE 301
 
 #define ALFA 1.0f
 #define BETA 0.5f
@@ -513,7 +513,7 @@ void *step_thread(void *arg)
             if (MPI_RANK == 0)
             {
                 // printS(A);
-                getchar();
+                //getchar();
             }
         }
 
@@ -521,7 +521,7 @@ void *step_thread(void *arg)
             printf("mid border s: %f\n", field[-1][20].s[B]); */
 
         // mpi transition
-        if (rank == 0 && MPI_SIZE > 1)
+        if (rank == 0 && MPI_SIZE > 1 && !(border))
         {
             if (MPI_RANK == 0)
             { // send to BOT
@@ -579,15 +579,15 @@ void *step_thread(void *arg)
             }
         }
 
-        if (MPI_RANK == 1 && rank == 0)
+        /* if (MPI_RANK == 1 && rank == 0)
         {
             pthread_barrier_wait(&barrier);
             printHex(A);
             getchar();
-        }
-        pthread_barrier_wait(&barrier);
+        } */
+        //pthread_barrier_wait(&barrier);
 
-        if (MPI_RANK == 1 && rank == 1 && progress)
+        if (MPI_RANK == 1 && rank == 1 && progress && !(border))
         {
             progress = false;
             for (int i = 0; i < FIELD_LEN; i++)
@@ -711,8 +711,8 @@ int main(int argc, char **argv)
     MPI_Finalize();
 
     //fclose(fp);
-    free(field);
-    free(data);
+    //free(field);
+    //free(data);
 
     return 0;
 }
