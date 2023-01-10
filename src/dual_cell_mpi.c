@@ -495,6 +495,7 @@ void *step_thread(void *arg)
             } */
             step++;
             // printf("waiting: %d\n", rank);
+
             pthread_barrier_wait(&barrier);
         } // while step
         void *buffer_ptr0;
@@ -521,7 +522,7 @@ void *step_thread(void *arg)
             printf("mid border s: %f\n", field[-1][20].s[B]); */
 
         // mpi transition
-        if (rank == 0 && MPI_SIZE > 1 && !(border))
+        if (rank == 0 && MPI_SIZE > 1)
         {
             if (MPI_RANK == 0)
             { // send to BOT
@@ -616,7 +617,7 @@ void *step_thread(void *arg)
 
 int main(int argc, char **argv)
 {
-    MPI_Init(&argc, &argv);
+    MPI_Init(NULL, NULL);
     MPI_Comm_size(MPI_COMM_WORLD, &MPI_SIZE);
     MPI_Comm_rank(MPI_COMM_WORLD, &MPI_RANK);
 
@@ -706,7 +707,8 @@ int main(int argc, char **argv)
     }*/
 
     dt = omp_get_wtime() - dt;
-    printf("time: %lf\n", dt);
+    if(MPI_RANK == 0)
+        printf("time: %lf\n", dt);
 
     MPI_Finalize();
 
