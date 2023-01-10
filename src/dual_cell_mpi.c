@@ -46,6 +46,7 @@ int MY_INTERSECTION_TOP;
 int MY_INTERSECTION_BOT;
 
 int steps = 0;
+FILE *pt;
 
 // da vemo, ali zapisujemo v file
 bool progress = false;
@@ -302,7 +303,7 @@ void *step_thread(void *arg)
     int A = 0;
     int B = 1;
     int step = 0;
-          
+
     int start = (int)(FIELD_LEN / (double)NTHREADS * rank);
     if (rank == 0)
     {
@@ -314,8 +315,8 @@ void *step_thread(void *arg)
         stop = FIELD_LEN - 1 + MY_INTERSECTION_BOT;
     }
 
-    //printf("STEP [%d, %d)\n", start, stop);
-    // printf("smo v threadu %d : [%d, %d)\n", rank, start, stop);
+    // printf("STEP [%d, %d)\n", start, stop);
+    //  printf("smo v threadu %d : [%d, %d)\n", rank, start, stop);
 
     while (!border)
     {
@@ -334,15 +335,17 @@ void *step_thread(void *arg)
                 end_offset = step;
             }
 
-            if (rank == 0 && MY_INTERSECTION_TOP > 0){
+            if (rank == 0 && MY_INTERSECTION_TOP > 0)
+            {
                 for (int j = 0; j < SIZE; j++)
                 {
-                    field[start + start_offset-1][j].s[B] = field[start + start_offset-1][j].s[A];
-                    field[start + start_offset-1][j].type[B] = field[start + start_offset-1][j].type[A];
+                    field[start + start_offset - 1][j].s[B] = field[start + start_offset - 1][j].s[A];
+                    field[start + start_offset - 1][j].type[B] = field[start + start_offset - 1][j].type[A];
                 }
             }
 
-            if(rank == NTHREADS - 1 && MY_INTERSECTION_BOT > 0){
+            if (rank == NTHREADS - 1 && MY_INTERSECTION_BOT > 0)
+            {
                 for (int j = 0; j < SIZE; j++)
                 {
                     field[stop - end_offset][j].s[B] = field[stop - end_offset][j].s[A];
@@ -350,9 +353,7 @@ void *step_thread(void *arg)
                 }
             }
 
-            
-
-            //printf("r%d step: %d : [%d, %d)\n", MPI_RANK, step, start + start_offset, stop - end_offset);
+            // printf("r%d step: %d : [%d, %d)\n", MPI_RANK, step, start + start_offset, stop - end_offset);
             for (int i = start + start_offset; i < stop - end_offset; i++)
             {
                 for (int j = 1; j < SIZE - 1; j++)
@@ -482,7 +483,7 @@ void *step_thread(void *arg)
             A = (A * -1) + 1;
             B = (B * -1) + 1;
 
-            //printf("(%d, %d): mid fieldA: %f\n", 20, 21, field[20][21].s[A]);
+            // printf("(%d, %d): mid fieldA: %f\n", 20, 21, field[20][21].s[A]);
 
             /* printf("rank %d about to hop\n", rank);
             if(rank == 0){
@@ -506,12 +507,12 @@ void *step_thread(void *arg)
         MPI_Request req0;
         MPI_Request req1;
 
-        //return NULL;
+        // return NULL;
         if (rank == 0)
         {
             if (MPI_RANK == 0)
             {
-                //printS(A);
+                // printS(A);
                 getchar();
             }
         }
@@ -524,35 +525,35 @@ void *step_thread(void *arg)
         {
             if (MPI_RANK == 0)
             { // send to BOT
-                //printf("0 transmiting..\n");
+                // printf("0 transmiting..\n");
                 buffer_ptr0 = (void *)&(field[FIELD_LEN - MPI_INTERSECTION_WIDTH][0]);
-                //printf("0: trans i: %d\n", FIELD_LEN - MPI_INTERSECTION_WIDTH);
+                // printf("0: trans i: %d\n", FIELD_LEN - MPI_INTERSECTION_WIDTH);
                 recv_ptr0 = (void *)&(field[FIELD_LEN][0]);
-                //printf("0: recv i: %d\n", FIELD_LEN);
+                // printf("0: recv i: %d\n", FIELD_LEN);
                 byte_length = SIZE * MY_INTERSECTION_BOT * sizeof(struct cell);
 
-                //MPI_Isend(buffer_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, &req0); // imidiate send your data
-                //printf("sent 0 -> 1\n");
+                MPI_Isend(buffer_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, &req0); // imidiate send your data
+                // printf("sent 0 -> 1\n");
                 MPI_Recv(recv_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
-                //printf("recivd 0 <- 1\n");
-                //MPI_Wait(&req0, MPI_STATUS_IGNORE); // wait till your data was delivered
-                //printf("0 continue\n");
+                // printf("recivd 0 <- 1\n");
+                MPI_Wait(&req0, MPI_STATUS_IGNORE); // wait till your data was delivered
+                // printf("0 continue\n");
             }
             else if (MPI_RANK == MPI_SIZE - 1)
             { // send to TOP
-                //printf("1 transmiting..\n");
+                // printf("1 transmiting..\n");
                 buffer_ptr0 = (void *)&(field[0][0]);
-                //printf("1: trans i: %d\n", 0);
+                // printf("1: trans i: %d\n", 0);
                 recv_ptr0 = (void *)&(field[0 - MY_INTERSECTION_TOP][0]);
-                //printf("1: recv i: %d\n", 0 - MY_INTERSECTION_TOP);
+                // printf("1: recv i: %d\n", 0 - MY_INTERSECTION_TOP);
                 byte_length = SIZE * MY_INTERSECTION_TOP * sizeof(struct cell);
 
                 MPI_Isend(buffer_ptr0, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, &req0); // imidiate send your data
-                //printf("sent 1 -> 0\n");
-                //MPI_Recv(recv_ptr0, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
-                //printf("recivd 1 <- 0\n");
+                // printf("sent 1 -> 0\n");
+                MPI_Recv(recv_ptr0, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
+                // printf("recivd 1 <- 0\n");
                 MPI_Wait(&req0, MPI_STATUS_IGNORE); // wait till your data was delivered
-                //printf("1 continue\n");
+                // printf("1 continue\n");
             }
             else
             { // send both ways
@@ -561,7 +562,7 @@ void *step_thread(void *arg)
                 recv_ptr0 = (void *)&(field[FIELD_LEN][0]);
                 byte_length = SIZE * MY_INTERSECTION_BOT * sizeof(struct cell);
 
-                MPI_Isend(buffer_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, &req0);         // imidiate send your data
+                MPI_Isend(buffer_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, &req0);          // imidiate send your data
                 MPI_Recv(recv_ptr0, byte_length, MPI_BYTE, MPI_RANK + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
                 // dont wait for that yet, continue...
 
@@ -570,7 +571,7 @@ void *step_thread(void *arg)
                 recv_ptr1 = (void *)&(field[0 - MY_INTERSECTION_TOP][0]);
                 byte_length = SIZE * MY_INTERSECTION_TOP * sizeof(struct cell);
 
-                MPI_Isend(buffer_ptr1, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, &req1);         // imidiate send your data
+                MPI_Isend(buffer_ptr1, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, &req1);          // imidiate send your data
                 MPI_Recv(recv_ptr1, byte_length, MPI_BYTE, MPI_RANK - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); // wait for your data
 
                 MPI_Wait(&req0, MPI_STATUS_IGNORE); // wait for BOT data delivery
@@ -578,11 +579,26 @@ void *step_thread(void *arg)
             }
         }
 
-        if (MPI_RANK == 0 && rank == 0)
+        if (MPI_RANK == 1 && rank == 0)
         {
             pthread_barrier_wait(&barrier);
             printHex(A);
             getchar();
+        }
+        pthread_barrier_wait(&barrier);
+
+        if (MPI_RANK == 1 && rank == 1 && progress)
+        {
+            progress = false;
+            for (int i = 0; i < FIELD_LEN; i++)
+            {
+                for (int j = 0; j < SIZE; j++)
+                {
+                    //fprintf(fp, "%d ", field[i][j].type);
+                }
+                //fprintf(fp, "\n");
+            }
+            //fprintf(fp, "\n");
         }
 
         step = 0;
@@ -639,14 +655,17 @@ int main(int argc, char **argv)
     pthread_t t[NTHREADS];
 
     // setaj up text file
-    char *filename = "pt_rows.txt";
+    //char filename[100] = char[100];
+    //char *filename = "bin/rezultati.txt";
+    //sprintf(filename, "bin/rezultati_%d02.txt", MPI_RANK);
+
     // char *filename = "bin/rezultati.txt";
-    FILE *fp = fopen(filename, "w");
-    if (fp == NULL)
+    //fp = fopen(filename, "w");
+    /* if (fp == NULL)
     {
         printf("Error opening the file %s", filename);
         return -1;
-    }
+    } */
 
     // merjenje casa
     double dt = omp_get_wtime();
@@ -691,7 +710,7 @@ int main(int argc, char **argv)
 
     MPI_Finalize();
 
-    fclose(fp);
+    //fclose(fp);
     free(field);
     free(data);
 
