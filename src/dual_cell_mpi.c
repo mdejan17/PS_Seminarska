@@ -13,7 +13,7 @@
 #define BETA 0.5f
 #define GAMA 0.01f
 
-#define NTHREADS 1
+#define NTHREADS 2
 
 #define MPI_INTERSECTION_WIDTH 2
 
@@ -255,7 +255,7 @@ void *init_thread(void *arg)
 
                 // if u are last mpi and on last i -> bottom border (robne celice)
             }
-            else if (MPI_RANK == MPI_SIZE - 1 && i == stop - 1)
+            else if (MPI_RANK == MPI_SIZE - 1 && i == FIELD_LEN + MY_INTERSECTION_TOP)
             {
                 field[i][j].type[0] = 2;
                 field[i][j].type[1] = 2;
